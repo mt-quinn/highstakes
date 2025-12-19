@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
-import { Bungee, Space_Grotesk, Special_Elite } from "next/font/google";
+import { Bungee, Space_Grotesk, Special_Elite, Caveat } from "next/font/google";
 
 const display = Bungee({
   subsets: ["latin"],
@@ -18,6 +18,12 @@ const typewriter = Special_Elite({
   subsets: ["latin"],
   weight: "400",
   variable: "--font-typewriter",
+});
+
+const handwriting = Caveat({
+  subsets: ["latin"],
+  weight: ["400", "600"],
+  variable: "--font-handwriting",
 });
 
 export const metadata: Metadata = {
@@ -39,7 +45,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${display.variable} ${body.variable} ${typewriter.variable}`}
+      className={`${display.variable} ${body.variable} ${typewriter.variable} ${handwriting.variable}`}
       suppressHydrationWarning
     >
       <head>

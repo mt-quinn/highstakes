@@ -8,6 +8,7 @@ const config: Config = {
         display: ["var(--font-display)", "system-ui", "sans-serif"],
         body: ["var(--font-body)", "system-ui", "sans-serif"],
         typewriter: ["var(--font-typewriter)", "ui-monospace", "SFMono-Regular", "Menlo", "monospace"],
+        handwriting: ["var(--font-handwriting)", "cursive"],
       },
       colors: {
         "pg-bg": "#090B16",

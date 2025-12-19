@@ -22,6 +22,7 @@ type StartResponse = {
 
 type AskResponse = { answer?: string; blocked?: boolean; godMessage?: string };
 type JudgeResponse = { correct: boolean; godMessage: string };
+type ErrorResponse = { error?: string };
 
 function reviveState(raw: unknown): ClientGameState | null {
   if (!raw || typeof raw !== "object") return null;
@@ -57,6 +58,7 @@ export function usePearlyGatesGame() {
   const [error, setError] = useState<string | null>(null);
   const [asking, setAsking] = useState(false);
   const [judging, setJudging] = useState(false);
+  const [popup, setPopup] = useState<null | { title: string; message: string }>(null);
 
   // load localStorage
   useEffect(() => {
@@ -106,7 +108,16 @@ export function usePearlyGatesGame() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ mode, dateKey }),
       });
-      if (!res.ok) throw new Error("start failed");
+      if (!res.ok) {
+        let msg = "Could not start today's game.";
+        try {
+          const data = (await res.json()) as ErrorResponse;
+          if (data?.error) msg = data.error;
+        } catch {
+          // ignore
+        }
+        throw new Error(msg);
+      }
       const data = (await res.json()) as StartResponse;
       setState((prev) => {
         const next = makeEmptyState(data.mode, data.dateKey, data.gameId);
@@ -158,6 +169,24 @@ export function usePearlyGatesGame() {
     }
   }, [start]);
 
+  const recoverFromMissingServerProfile = useCallback(() => {
+    // This is expected in local dev if server-side caching is in-memory and the dev server
+    // restarts or hot-reloads: the client has a saved run, but the server forgot the dossier.
+    setPopup({
+      title: "GOD",
+      message:
+        "THE HEAVENS HAVE MISPLACED THIS DOSSIER.\nTHY RUN IS RESET.\nASK AGAIN, BUT WITH FEELING.",
+    });
+    if (!state) return;
+    if (state.mode === "debug-random") {
+      // new random soul
+      void startRandom();
+    } else {
+      // reset local daily state so we force a fresh /api/game/start
+      resetDaily();
+    }
+  }, [resetDaily, startRandom, state]);
+
   const ask = useCallback(
     async (question: string) => {
       if (!state || state.isComplete) return;
@@ -178,12 +207,7 @@ export function usePearlyGatesGame() {
       try {
         // Client-side fast path so we don't spend tokens on obvious questions.
         if (isObviousAlignmentQuestion(trimmed)) {
-          const item: QAItem = {
-            q: trimmed,
-            a: godObviousQuestionWarning(),
-            from: "GOD",
-          };
-          setState((prev) => (prev ? { ...prev, qa: [...prev.qa, item] } : prev));
+          setPopup({ title: "GOD", message: godObviousQuestionWarning() });
           return;
         }
 
@@ -198,22 +222,33 @@ export function usePearlyGatesGame() {
             qaSoFar: state.qa.filter((x) => (x.from || "SOUL") === "SOUL"),
           }),
         });
-        if (!res.ok) throw new Error("ask failed");
+        if (!res.ok) {
+          let msg = "Could not get an answer. Try again.";
+          try {
+            const data = (await res.json()) as ErrorResponse;
+            if (data?.error) msg = data.error;
+          } catch {
+            // ignore
+          }
+          if (res.status === 404 && /game not found/i.test(msg)) {
+            recoverFromMissingServerProfile();
+            return;
+          }
+          throw new Error(msg);
+        }
         const data = (await res.json()) as AskResponse;
         if (data.blocked) {
-          const item: QAItem = {
-            q: trimmed,
-            a: (data.godMessage || godObviousQuestionWarning()).toString(),
-            from: "GOD",
-          };
-          setState((prev) => (prev ? { ...prev, qa: [...prev.qa, item] } : prev));
+          setPopup({
+            title: "GOD",
+            message: (data.godMessage || godObviousQuestionWarning()).toString(),
+          });
         } else {
           const a = (data.answer || "").toString();
           const item: QAItem = { q: trimmed, a, from: "SOUL" };
           setState((prev) => (prev ? { ...prev, qa: [...prev.qa, item] } : prev));
         }
-      } catch {
-        setError("Could not get an answer. Try again.");
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Could not get an answer. Try again.");
       } finally {
         setAsking(false);
       }
@@ -243,14 +278,32 @@ export function usePearlyGatesGame() {
             qa: state.qa,
           }),
         });
-        if (!res.ok) throw new Error("judge failed");
+        if (!res.ok) {
+          let msg = "God is busy. Try again.";
+          try {
+            const data = (await res.json()) as ErrorResponse;
+            if (data?.error) msg = data.error;
+          } catch {
+            // ignore
+          }
+          if (res.status === 404 && /game not found/i.test(msg)) {
+            recoverFromMissingServerProfile();
+            return;
+          }
+          throw new Error(msg);
+        }
         const data = (await res.json()) as JudgeResponse;
         setState((prev) => {
           if (!prev) return prev;
           return { ...prev, wasCorrect: !!data.correct, godMessage: data.godMessage || "" };
         });
-      } catch {
-        setError("Judgment recorded, but God is busy. Tap to retry the verdict.");
+        setPopup({ title: "GOD", message: data.godMessage || "" });
+      } catch (e) {
+        setError(
+          e instanceof Error
+            ? e.message
+            : "Judgment recorded, but God is busy. Tap to retry the verdict.",
+        );
       } finally {
         setJudging(false);
       }
@@ -275,18 +328,34 @@ export function usePearlyGatesGame() {
           qa: state.qa,
         }),
       });
-      if (!res.ok) throw new Error("judge failed");
+      if (!res.ok) {
+        let msg = "Still no verdict. Try again in a moment.";
+        try {
+          const data = (await res.json()) as ErrorResponse;
+          if (data?.error) msg = data.error;
+        } catch {
+          // ignore
+        }
+        if (res.status === 404 && /game not found/i.test(msg)) {
+          recoverFromMissingServerProfile();
+          return;
+        }
+        throw new Error(msg);
+      }
       const data = (await res.json()) as JudgeResponse;
       setState((prev) => {
         if (!prev) return prev;
         return { ...prev, wasCorrect: !!data.correct, godMessage: data.godMessage || "" };
       });
-    } catch {
-      setError("Still no verdict. Try again in a moment.");
+      setPopup({ title: "GOD", message: data.godMessage || "" });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Still no verdict. Try again in a moment.");
     } finally {
       setJudging(false);
     }
-  }, [state]);
+  }, [recoverFromMissingServerProfile, state]);
+
+  const dismissPopup = useCallback(() => setPopup(null), []);
 
   return {
     state,
@@ -295,6 +364,8 @@ export function usePearlyGatesGame() {
     error,
     asking,
     judging,
+    popup,
+    dismissPopup,
     resetDaily,
     startRandom,
     ask,

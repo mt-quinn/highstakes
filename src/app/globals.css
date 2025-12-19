@@ -18,6 +18,14 @@ body {
   @apply bg-pg-bg bg-pg-radial text-pg-text font-body;
 }
 
+@font-face {
+  font-family: "LiebeHeide";
+  src: url("/LiebeHeide-Color-iF66f2f6065f2e8.otf") format("opentype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -70,6 +78,61 @@ button,
   .pg-bob {
     animation: none;
   }
+}
+
+.pg-legalpad {
+  /* container only (paper color); rules live on the scrolling sheet */
+  background-color: #f6eaa7;
+}
+
+/* This element scrolls; keep rules attached to the text by putting them here. */
+.pg-legalpad-sheet {
+  --pg-pad-left: 40px;     /* almost touching the red margin line */
+  --pg-pad-top: 14px;      /* where the first line box starts */
+  --pg-line-step: 28px;    /* MUST equal the line-height */
+  --pg-line-offset: 22px;  /* where the rule sits within each line box (below baseline) */
+  --pg-margin-x: 34px;     /* red margin line position */
+
+  display: block;
+  width: 100%;
+  min-height: 100%;
+
+  padding-left: var(--pg-pad-left);
+  padding-right: 14px;
+  padding-top: var(--pg-pad-top);
+  padding-bottom: 16px;
+
+  line-height: var(--pg-line-step);
+  font-size: 22px;
+  font-family: "LiebeHeide", var(--font-handwriting), cursive;
+  color: #000;
+  font-weight: 900;
+  /* boost legibility against the paper */
+  text-shadow:
+    0 0 1.2px rgba(0, 0, 0, 0.78),
+    0 1px 0 rgba(0, 0, 0, 0.22),
+    0 2px 2px rgba(0, 0, 0, 0.10);
+
+  background-image:
+    linear-gradient(
+      to right,
+      transparent 0,
+      transparent var(--pg-margin-x),
+      rgba(210, 54, 54, 0.38) var(--pg-margin-x),
+      rgba(210, 54, 54, 0.38) calc(var(--pg-margin-x) + 2px),
+      transparent calc(var(--pg-margin-x) + 2px)
+    ),
+    repeating-linear-gradient(
+      to bottom,
+      rgba(0, 0, 0, 0) 0px,
+      rgba(0, 0, 0, 0) calc(var(--pg-line-offset) - 1px),
+      rgba(0, 0, 0, 0.14) calc(var(--pg-line-offset) - 1px),
+      rgba(0, 0, 0, 0.14) var(--pg-line-offset),
+      rgba(0, 0, 0, 0) var(--pg-line-offset),
+      rgba(0, 0, 0, 0) var(--pg-line-step)
+    );
+  background-position: 0 0, 0 var(--pg-pad-top);
+  background-attachment: local;
 }
 
 

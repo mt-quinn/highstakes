@@ -64,6 +64,7 @@ Style:
 - No text, no watermark, no frame, no border.
 - SINGLE SOLID BACKGROUND color: pure lime green #00FF00 filling the entire background. No gradients, no shadows on background.
 - The subject must NOT contain lime green (#00FF00) anywhere (no green clothes, no green accessories, no green lighting).
+- Clothing colors: ONLY neutral/dark tones (black, navy, charcoal, brown). Avoid all greens and yellow-greens entirely.
 - Crop: HEAD AND SHOULDERS ONLY, cut off around upper chest. NO full torso. NO arms. NO hands. NO props.
 - Framing: the head+shoulders should fill ~75–85% of the image height. Centered, facing forward.
 
@@ -95,8 +96,10 @@ async function chromaKeyLimeToAlpha(input: Buffer): Promise<Buffer> {
   //    pixels connected to the outside. This avoids keying out any internal portrait details
   //    that happen to share a similar color.
   const bg = sampleBackgroundRGB(out, width, height);
-  const tol = bg.tol; // adaptive tolerance in RGB space
-  const tolSq = tol * tol;
+  // IMPORTANT: cap fill tolerance so we don't accidentally "walk into" clothing colors.
+  // Feathering can still handle edge noise; the hard fill should be conservative.
+  const tolFill = Math.min(bg.tol, 90);
+  const tolFillSq = tolFill * tolFill;
 
   const visited = new Uint8Array(width * height);
   const q = new Int32Array(width * height);
@@ -112,7 +115,7 @@ async function chromaKeyLimeToAlpha(input: Buffer): Promise<Buffer> {
     const dg = out[o + 1]! - bg.g;
     const db = out[o + 2]! - bg.b;
     const d2 = dr * dr + dg * dg + db * db;
-    if (d2 > tolSq) return;
+    if (d2 > tolFillSq) return;
     visited[idx] = 1;
     q[qt++] = idx;
   };
@@ -137,8 +140,6 @@ async function chromaKeyLimeToAlpha(input: Buffer): Promise<Buffer> {
     const idx = q[qh++]!;
     const x = idx % width;
     const y = (idx / width) | 0;
-    // clear alpha for background pixels
-    out[idx * 4 + 3] = 0;
     // 4-neighborhood
     push(x + 1, y);
     push(x - 1, y);
@@ -146,10 +147,17 @@ async function chromaKeyLimeToAlpha(input: Buffer): Promise<Buffer> {
     push(x, y - 1);
   }
 
+  // Erode the background mask before clearing alpha. This prevents the flood-fill from chewing
+  // into subject pixels when the boundary is noisy or missing (common around clothing edges).
+  const eroded = erodeMask4(visited, width, height, 2);
+  for (let idx = 0; idx < width * height; idx++) {
+    if (eroded[idx]) out[idx * 4 + 3] = 0;
+  }
+
   // Adjacency-only feathering:
   // For pixels *next to* removed background (alpha=0), softly reduce alpha if they are close
   // to the sampled background. This smooths edges without touching similarly-colored interior pixels.
-  const soft = tol + 36;
+  const soft = Math.min(170, bg.tol + 36);
   const softSq = soft * soft;
 
   const isCleared = (x: number, y: number) => {
@@ -332,6 +340,27 @@ function alphaBoundingBox(buf: Buffer, width: number, height: number): {
 
   if (maxX < minX || maxY < minY) return { left: 0, top: 0, width: 0, height: 0 };
   return { left: minX, top: minY, width: maxX - minX + 1, height: maxY - minY + 1 };
+}
+
+function erodeMask4(mask: Uint8Array, width: number, height: number, iterations: number): Uint8Array {
+  let cur = mask;
+  for (let it = 0; it < iterations; it++) {
+    const next = new Uint8Array(width * height);
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const i = y * width + x;
+        if (!cur[i]) continue;
+        // 4-neighborhood erosion (stay conservative at edges)
+        const left = x > 0 ? cur[i - 1] : 0;
+        const right = x + 1 < width ? cur[i + 1] : 0;
+        const up = y > 0 ? cur[i - width] : 0;
+        const down = y + 1 < height ? cur[i + width] : 0;
+        if (left && right && up && down) next[i] = 1;
+      }
+    }
+    cur = next;
+  }
+  return cur;
 }
 
 

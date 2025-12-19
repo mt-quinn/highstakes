@@ -1,0 +1,49 @@
+# Dependencies
+node_modules/
+
+# Next.js
+.next/
+out/
+next-env.d.ts
+
+# Production builds (if you ever add these)
+dist/
+build/
+
+# Env / secrets (ignore all env files; keep only an example template if you add one)
+.env
+.env.*
+.env.local
+.env.*.local
+!.env.example
+
+# Vercel
+.vercel/
+
+# TypeScript (Next.js generates this file; it should be committed)
+!next-env.d.ts
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+logs/
+*.log
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+*.tmp
+
+

@@ -1,0 +1,52 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body {
+  height: 100%;
+  touch-action: manipulation;
+  overscroll-behavior: none;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  @apply bg-pg-bg bg-pg-radial text-pg-text font-body;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* Simple focus style for accessibility */
+::where(button, input, textarea) {
+  @apply outline-none;
+}
+::where(button, input, textarea):focus-visible {
+  @apply ring-2 ring-pg-gold ring-offset-2 ring-offset-pg-bg;
+}
+
+/* Prevent mobile browsers (especially iOS Safari) from auto-zooming inputs. */
+input,
+textarea,
+select,
+button,
+[contenteditable="true"] {
+  font-size: 16px !important;
+}
+
+@supports (-webkit-touch-callout: none) {
+  input,
+  textarea,
+  select,
+  button,
+  [contenteditable="true"] {
+    font-size: 16px !important;
+  }
+}
+
+

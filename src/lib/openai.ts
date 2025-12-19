@@ -1,0 +1,22 @@
+import { OpenAI } from "openai";
+
+let cachedClient: OpenAI | null = null;
+
+export function getOpenAIClient() {
+  if (!cachedClient) {
+    if (!process.env.OPENAI_API_KEY) {
+      throw new Error("OPENAI_API_KEY is not set in the environment");
+    }
+
+    cachedClient = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    });
+  }
+
+  return cachedClient;
+}
+
+export const DEFAULT_MODEL_ID =
+  process.env.PEARLY_GATES_MODEL_ID || "gpt-5.2-2025-12-11";
+
+

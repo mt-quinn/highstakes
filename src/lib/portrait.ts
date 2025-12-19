@@ -149,9 +149,15 @@ async function chromaKeyLimeToAlpha(input: Buffer): Promise<Buffer> {
 
   // Erode the background mask before clearing alpha. This prevents the flood-fill from chewing
   // into subject pixels when the boundary is noisy or missing (common around clothing edges).
+  //
+  // IMPORTANT: erosion can leave a 1–2px "frame" at the outer edge. We always clear any
+  // flood-filled pixels that touch the image border.
   const eroded = erodeMask4(visited, width, height, 2);
   for (let idx = 0; idx < width * height; idx++) {
-    if (eroded[idx]) out[idx * 4 + 3] = 0;
+    const x = idx % width;
+    const y = (idx / width) | 0;
+    const isBorder = x === 0 || y === 0 || x === width - 1 || y === height - 1;
+    if (eroded[idx] || (isBorder && visited[idx])) out[idx * 4 + 3] = 0;
   }
 
   // Adjacency-only feathering:

@@ -102,7 +102,7 @@ export function Game() {
           </div>
         </div>
       ) : (
-        <div className="flex-1 flex flex-col min-h-0">
+        <div className="flex-1 flex flex-col min-h-0 relative">
           {/* Top half: Gates */}
           <section className="flex-1 min-h-0 relative overflow-hidden px-4 pb-3 bg-white">
             <div className="absolute inset-0 pointer-events-none">
@@ -146,6 +146,30 @@ export function Game() {
             </div>
           </section>
 
+          {/* Floating stamp bubble bridging the middle */}
+          {!state.isComplete && (
+            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-30">
+              <div className="rounded-3xl border border-white/15 bg-black/35 backdrop-blur px-2 py-2 shadow-pg-card">
+                <div className="flex items-center justify-center gap-2">
+                  <DraggableStamp
+                    label="HEAVEN"
+                    colorClass="bg-pg-green/20 border-pg-green/50 text-pg-green"
+                    disabled={!canStamp}
+                    faceRef={faceRef}
+                    onStamp={() => handleStamp("HEAVEN")}
+                  />
+                  <DraggableStamp
+                    label="HELL"
+                    colorClass="bg-pg-red/20 border-pg-red/50 text-pg-red"
+                    disabled={!canStamp}
+                    faceRef={faceRef}
+                    onStamp={() => handleStamp("HELL")}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Bottom half: Desk */}
           <section className="flex-1 min-h-0 border-t border-white/10 bg-black/15 px-4 py-3 flex flex-col gap-3">
             {error && (
@@ -157,9 +181,6 @@ export function Game() {
             {!state.isComplete ? (
               <div className="text-[0.7rem] text-pg-muted flex items-center justify-between gap-2">
                 <span className="uppercase tracking-[0.18em]">Interrogation</span>
-                <span className="text-pg-gold font-semibold whitespace-nowrap">
-                  {questionsLeft}/{MAX_QUESTIONS} left
-                </span>
               </div>
             ) : (
               <div className="text-[0.75rem] text-pg-muted flex items-center justify-between">
@@ -177,26 +198,6 @@ export function Game() {
             <div className="flex-1 min-h-0 flex gap-3">
               {/* Left: interrogation */}
               <div className="flex-1 min-w-0 flex flex-col gap-3">
-                {/* Stamps at top (saves vertical space elsewhere) */}
-                {!state.isComplete && (
-                  <div className="flex items-center justify-center gap-2">
-                    <DraggableStamp
-                      label="HEAVEN"
-                      colorClass="bg-pg-green/20 border-pg-green/50 text-pg-green"
-                      disabled={!canStamp}
-                      faceRef={faceRef}
-                      onStamp={() => handleStamp("HEAVEN")}
-                    />
-                    <DraggableStamp
-                      label="HELL"
-                      colorClass="bg-pg-red/20 border-pg-red/50 text-pg-red"
-                      disabled={!canStamp}
-                      faceRef={faceRef}
-                      onStamp={() => handleStamp("HELL")}
-                    />
-                  </div>
-                )}
-
                 {/* Q/A log */}
                 <div
                   ref={qaScrollRef}

@@ -142,33 +142,33 @@ export function Game() {
                     </div>
                   </div>
                 )}
+
+                {/* Stamp bubble inside the gates scene (bottom-left) */}
+                {!state.isComplete && (
+                  <div className="absolute left-2 bottom-2 z-30">
+                    <div className="rounded-3xl border border-white/15 bg-black/35 backdrop-blur px-2 py-2 shadow-pg-card">
+                      <div className="flex items-center justify-center gap-2">
+                        <DraggableStamp
+                          label="HEAVEN"
+                          colorClass="bg-pg-green/20 border-pg-green/50 text-pg-green"
+                          disabled={!canStamp}
+                          faceRef={faceRef}
+                          onStamp={() => handleStamp("HEAVEN")}
+                        />
+                        <DraggableStamp
+                          label="HELL"
+                          colorClass="bg-pg-red/20 border-pg-red/50 text-pg-red"
+                          disabled={!canStamp}
+                          faceRef={faceRef}
+                          onStamp={() => handleStamp("HELL")}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </section>
-
-          {/* Floating stamp bubble bridging the middle */}
-          {!state.isComplete && (
-            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-30">
-              <div className="rounded-3xl border border-white/15 bg-black/35 backdrop-blur px-2 py-2 shadow-pg-card">
-                <div className="flex items-center justify-center gap-2">
-                  <DraggableStamp
-                    label="HEAVEN"
-                    colorClass="bg-pg-green/20 border-pg-green/50 text-pg-green"
-                    disabled={!canStamp}
-                    faceRef={faceRef}
-                    onStamp={() => handleStamp("HEAVEN")}
-                  />
-                  <DraggableStamp
-                    label="HELL"
-                    colorClass="bg-pg-red/20 border-pg-red/50 text-pg-red"
-                    disabled={!canStamp}
-                    faceRef={faceRef}
-                    onStamp={() => handleStamp("HELL")}
-                  />
-                </div>
-              </div>
-            </div>
-          )}
 
           {/* Bottom half: Desk */}
           <section className="flex-1 min-h-0 border-t border-white/10 bg-black/15 px-4 py-3 flex flex-col gap-3">
@@ -178,26 +178,27 @@ export function Game() {
               </div>
             )}
 
-            {!state.isComplete ? (
-              <div className="text-[0.7rem] text-pg-muted flex items-center justify-between gap-2">
-                <span className="uppercase tracking-[0.18em]">Interrogation</span>
-              </div>
-            ) : (
-              <div className="text-[0.75rem] text-pg-muted flex items-center justify-between">
-                <span className="uppercase tracking-[0.18em]">Verdict</span>
-                <span className="text-pg-gold font-semibold">
-                  {state.wasCorrect === undefined
-                    ? "Awaiting God…"
-                    : state.wasCorrect
-                      ? "Correct"
-                      : "Wrong"}
-                </span>
-              </div>
-            )}
-
             <div className="flex-1 min-h-0 flex gap-3">
               {/* Left: interrogation */}
               <div className="flex-1 min-w-0 flex flex-col gap-3">
+                {/* Bottom-panel title row lives on the left so the toe tag can start at the top */}
+                {!state.isComplete ? (
+                  <div className="text-[0.7rem] text-pg-muted flex items-center justify-between gap-2">
+                    <span className="uppercase tracking-[0.18em]">Interrogation</span>
+                  </div>
+                ) : (
+                  <div className="text-[0.75rem] text-pg-muted flex items-center justify-between">
+                    <span className="uppercase tracking-[0.18em]">Verdict</span>
+                    <span className="text-pg-gold font-semibold">
+                      {state.wasCorrect === undefined
+                        ? "Awaiting God…"
+                        : state.wasCorrect
+                          ? "Correct"
+                          : "Wrong"}
+                    </span>
+                  </div>
+                )}
+
                 {/* Q/A log */}
                 <div
                   ref={qaScrollRef}
@@ -306,28 +307,78 @@ export function Game() {
 
               {/* Right: character info panel */}
               <aside className="w-[40%] max-w-[14.5rem] min-w-[10.5rem] flex flex-col">
-                <div className="flex-1 min-h-0 rounded-2xl bg-black/25 border border-white/10 px-3 py-3 shadow-inner overflow-y-auto">
-                  <div className="text-[0.6rem] tracking-[0.25em] uppercase text-pg-muted">
-                    Soul intake card
-                  </div>
-
-                  <div className="mt-2 space-y-2">
-                    <div className="text-sm font-semibold text-pg-text break-words leading-snug">
-                      {hasProfile ? state.visible.name : "Loading…"}
-                    </div>
-
-                    <div className="text-[0.8rem] text-pg-muted leading-snug break-words">
-                      {hasProfile ? `${state.visible.age} • ${state.visible.occupation}` : ""}
-                    </div>
-
-                    <div className="pt-1 border-t border-white/10">
-                      <div className="text-[0.65rem] tracking-[0.18em] uppercase text-pg-muted">
-                        Cause of death
+                <div
+                  className="flex-1 min-h-0 relative overflow-hidden overflow-x-hidden border border-black/80 bg-[#f7e9b9] text-black shadow-[0_18px_40px_rgba(0,0,0,0.45)] font-body"
+                  style={{
+                    // Toe-tag-ish clipped corners (45° cuts on top left + top right)
+                    clipPath:
+                      "polygon(40px 0%, calc(100% - 40px) 0%, 100% 40px, 100% 100%, 0% 100%, 0% 40px)",
+                    // Square bottom corners
+                    borderRadius: "0px",
+                  }}
+                >
+                  {/* Form content */}
+                  <div className="relative z-10 h-full px-3 pt-2 pb-2 overflow-y-auto overflow-x-hidden">
+                    {/* Grommet + string (scrolls with content) */}
+                    <div className="relative flex items-start justify-center pt-1 pb-2">
+                      <div className="relative w-8 h-8 opacity-90">
+                        <div className="absolute inset-0 rounded-full bg-[#c77a2f] border border-black/70" />
+                        <div className="absolute inset-[8px] rounded-full bg-[#12041f] border border-black/60" />
                       </div>
-                      <div className="mt-1 text-[0.85rem] text-pg-text leading-snug break-words">
-                        {hasProfile ? state.visible.causeOfDeath : ""}
+                      <div className="absolute left-1/2 top-10 -translate-x-1/2 w-[200px] h-[120px] pointer-events-none opacity-70">
+                        <div className="absolute left-0 top-4 w-[240px] h-[2px] bg-black/12 rotate-[18deg] origin-left" />
+                        <div className="absolute left-0 top-14 w-[260px] h-[2px] bg-black/10 rotate-[10deg] origin-left" />
                       </div>
                     </div>
+
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="text-[0.55rem] tracking-[0.22em] font-black uppercase text-black/75">
+                        Soul intake
+                      </div>
+                      <div className="text-[0.55rem] tracking-[0.22em] font-black uppercase text-black/45">
+                        Case No.{" "}
+                        {typeof (state.visible as any).caseNumber === "number"
+                          ? String((state.visible as any).caseNumber).padStart(4, "0")
+                          : "----"}
+                      </div>
+                    </div>
+
+                    <div className="mt-1.5 border-t border-black/70" />
+
+                    <div className="pt-1.5 space-y-2">
+                      {/* Two-column layout with independent vertical flow:
+                          left = Name -> Occupation, right = Age -> Cause */}
+                      <div className="grid grid-cols-2 gap-2 items-start">
+                        <div className="flex flex-col gap-2 min-w-0">
+                          <FieldRow
+                            label="Deceased Name"
+                            value={hasProfile ? state.visible.name : "Loading…"}
+                            multiline
+                          />
+                          <FieldRow
+                            label="Occupation"
+                            value={hasProfile ? state.visible.occupation : ""}
+                            multiline
+                          />
+                        </div>
+                        <div className="flex flex-col gap-2 min-w-0">
+                          <div className="w-14">
+                            <FieldRow
+                              label="Age"
+                              value={hasProfile ? String(state.visible.age) : ""}
+                              small
+                            />
+                          </div>
+                          <FieldRow
+                            label="Cause of death"
+                            value={hasProfile ? state.visible.causeOfDeath : ""}
+                            multiline
+                            small
+                          />
+                        </div>
+                      </div>
+                    </div>
+
                   </div>
                 </div>
               </aside>
@@ -335,6 +386,39 @@ export function Game() {
           </section>
         </div>
       )}
+    </div>
+  );
+}
+
+function FieldRow({
+  label,
+  value,
+  multiline = false,
+  small = false,
+}: {
+  label: string;
+  value: string;
+  multiline?: boolean;
+  small?: boolean;
+}) {
+  return (
+    <div className={small ? "space-y-0.5" : "space-y-1"}>
+      <div
+        className={`tracking-[0.22em] font-black uppercase text-black/75 ${
+          small ? "text-[0.5rem]" : "text-[0.54rem]"
+        } font-body`}
+      >
+        {label}
+      </div>
+      <div className={small ? "pb-0.5" : "pb-1"}>
+        <div
+          className={`min-w-0 font-semibold text-black break-words font-typewriter ${
+            small ? "text-[0.7rem] leading-snug" : "text-[0.74rem] leading-snug"
+          }`}
+        >
+          {value}
+        </div>
+      </div>
     </div>
   );
 }

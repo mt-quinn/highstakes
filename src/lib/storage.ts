@@ -35,10 +35,17 @@ async function getRedisClient(): Promise<MinimalRedisClient> {
     throw new Error("REDIS_URL is not set");
   }
 
-  const { createClient } = await import("redis");
-  const client = createClient({
-    url: process.env.REDIS_URL,
-  }) as unknown as MinimalRedisClient;
+  let createClient: any;
+  try {
+    // Optional dependency locally; if it's missing we will fall back to memory storage.
+    ({ createClient } = await import("redis"));
+  } catch (e) {
+    throw new Error(
+      "Redis client not available (missing optional dependency 'redis').",
+    );
+  }
+
+  const client = createClient({ url: process.env.REDIS_URL }) as unknown as MinimalRedisClient;
 
   client.on("error", (err) => {
     console.error("Redis error:", err);
@@ -61,13 +68,19 @@ export async function kvGetJSON<T>(key: string): Promise<T | null> {
   }
 
   if (hasRedisUrl()) {
-    const client = await getRedisClient();
-    const raw = await client.get(key);
-    if (!raw) return null;
     try {
-      return JSON.parse(raw) as T;
-    } catch {
-      return null;
+      const client = await getRedisClient();
+      const raw = await client.get(key);
+      if (!raw) return null;
+      try {
+        return JSON.parse(raw) as T;
+      } catch {
+        return null;
+      }
+    } catch (e) {
+      // Local/dev fallback: if Redis isn't configured or the optional dependency isn't installed,
+      // silently fall back to in-memory storage so the game still runs.
+      console.warn("KV Redis fallback to memory:", e);
     }
   }
 
@@ -101,13 +114,19 @@ export async function kvSetJSON(
   }
 
   if (hasRedisUrl()) {
-    const client = await getRedisClient();
-    if (opts?.exSeconds) {
-      await client.set(key, raw, { EX: opts.exSeconds });
-    } else {
-      await client.set(key, raw);
+    try {
+      const client = await getRedisClient();
+      if (opts?.exSeconds) {
+        await client.set(key, raw, { EX: opts.exSeconds });
+      } else {
+        await client.set(key, raw);
+      }
+      return;
+    } catch (e) {
+      // Local/dev fallback: if Redis isn't configured or the optional dependency isn't installed,
+      // silently fall back to in-memory storage so the game still runs.
+      console.warn("KV Redis fallback to memory:", e);
     }
-    return;
   }
 
   const store = getMemoryStore();

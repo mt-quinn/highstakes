@@ -50,7 +50,7 @@ export function godObviousQuestionWarning(): string {
   return [
     "NO, MORTAL.",
     "PASSING JUDGMENT CANNOT BE THAT SIMPLE.",
-    "ASK YOUR QUESTIONS. LISTEN CLOSELY. THEN STAMP.",
+    "ASK BETTER QUESTIONS. LISTEN CLOSELY.",
   ].join("\n");
 }
 

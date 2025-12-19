@@ -11,6 +11,7 @@ type StartResponse = {
   dateKey: string;
   gameId: string;
   visible: {
+    caseNumber: number;
     name: string;
     age: number;
     occupation: string;
@@ -37,6 +38,7 @@ function makeEmptyState(mode: GameMode, dateKey: string, gameId: string): Client
     gameId,
     startedAt: Date.now(),
     visible: {
+      caseNumber: 0,
       name: "",
       age: 0,
       occupation: "",
@@ -89,7 +91,10 @@ export function usePearlyGatesGame() {
   const hasProfile = Boolean(
     state?.visible?.name &&
       state.visible.occupation &&
-      state.visible.causeOfDeath,
+      state.visible.causeOfDeath &&
+      typeof (state.visible as any).caseNumber === "number" &&
+      (state.visible as any).caseNumber >= 1000 &&
+      (state.visible as any).caseNumber <= 9999,
   );
 
   const start = useCallback(

@@ -7,6 +7,7 @@ const config: Config = {
       fontFamily: {
         display: ["var(--font-display)", "system-ui", "sans-serif"],
         body: ["var(--font-body)", "system-ui", "sans-serif"],
+        typewriter: ["var(--font-typewriter)", "ui-monospace", "SFMono-Regular", "Menlo", "monospace"],
       },
       colors: {
         "pg-bg": "#090B16",

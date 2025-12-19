@@ -3,6 +3,7 @@ export type GameMode = "daily" | "debug-random";
 export type Alignment = "GOOD" | "EVIL";
 
 export type VisibleProfile = {
+  caseNumber: number; // 4-digit, deterministic
   name: string;
   age: number;
   occupation: string;

@@ -4,6 +4,7 @@ import { DEFAULT_MODEL_ID, getOpenAIClient } from "@/lib/openai";
 import { kvGetJSON, kvSetJSON } from "@/lib/storage";
 import { dailyProfileKey, randomProfileKey } from "@/lib/profileKeys";
 import { pickFaceEmoji } from "@/lib/emoji";
+import { caseNumberFromSeed } from "@/lib/caseNumber";
 import type { Alignment, CharacterProfile, GameMode, HiddenProfile, VisibleProfile } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -38,6 +39,33 @@ export async function POST(req: Request) {
       const key = dailyProfileKey(dateKey);
       const existing = await kvGetJSON<CharacterProfile>(key);
       if (existing) {
+        // Back-compat: older cached profiles may not have a caseNumber, and older names may include nicknames.
+        const desiredCaseNumber = caseNumberFromSeed(dateKey);
+        const currentCaseNumber = Number((existing.visible as any)?.caseNumber);
+        const needsCaseNumber = !Number.isFinite(currentCaseNumber) || currentCaseNumber < 1000 || currentCaseNumber > 9999;
+
+        const desiredName = sanitizeName(existing.visible?.name || "");
+        const needsNameSanitize = desiredName && desiredName !== existing.visible?.name;
+
+        if (needsCaseNumber || needsNameSanitize) {
+          const updated: CharacterProfile = {
+            ...existing,
+            visible: {
+              ...existing.visible,
+              caseNumber: needsCaseNumber ? desiredCaseNumber : (existing.visible as any).caseNumber,
+              name: needsNameSanitize ? desiredName : existing.visible.name,
+            },
+          };
+          await kvSetJSON(key, updated, { exSeconds: DAILY_TTL_SECONDS });
+          return NextResponse.json({
+            mode: "daily",
+            dateKey,
+            gameId: updated.gameId,
+            visible: updated.visible,
+            faceEmoji: updated.faceEmoji,
+          } satisfies StartResponse);
+        }
+
         const res: StartResponse = {
           mode: "daily",
           dateKey,
@@ -65,7 +93,7 @@ export async function POST(req: Request) {
         gameId,
         alignment,
         faceEmoji,
-        visible,
+        visible: { ...visible, caseNumber: caseNumberFromSeed(dateKey) },
         hidden,
       };
       await kvSetJSON(key, profile, { exSeconds: DAILY_TTL_SECONDS });
@@ -93,7 +121,7 @@ export async function POST(req: Request) {
       gameId,
       alignment,
       faceEmoji,
-      visible,
+      visible: { ...visible, caseNumber: caseNumberFromSeed(gameId) },
       hidden,
     };
     await kvSetJSON(key, profile, { exSeconds: RANDOM_TTL_SECONDS });
@@ -157,6 +185,11 @@ OUTPUT REQUIREMENTS:
 CONTENT REQUIREMENTS:
 - Make the character vivid, specific, and funny/strange enough to interrogate.
 - The visible section should be intriguing but NOT give away the alignment outright.
+- The "name" MUST be a normal human name (first + last, optionally middle initial). NO nicknames, NO quotes, NO titles, NO epithets.
+  - Bad: Douglas "Cash King" Winston
+  - Good: Douglas Winston
+  - Bad: Marla “Marlboro” Quince
+  - Good: Marla Quince
 - The hidden section MUST fully support the alignment:
   - If GOOD: bestActs should be genuinely admirable; worstActs should be minor/relatable flaws.
   - If EVIL: worstActs should be clearly damning; bestActs can exist but should not redeem them.
@@ -180,7 +213,8 @@ function parseCharacterResponse(
     if (!visible || !hidden) throw new Error("Missing visible/hidden");
 
     const cleanedVisible: VisibleProfile = {
-      name: String(visible.name || "Unknown"),
+      caseNumber: 1000, // placeholder; server overwrites deterministically
+      name: sanitizeName(String(visible.name || "Unknown")),
       age: Number.isFinite(visible.age) ? Math.max(1, Math.min(120, Math.round(visible.age))) : 42,
       occupation: String(visible.occupation || "Unemployed"),
       causeOfDeath: String(visible.causeOfDeath || "Unknown"),
@@ -203,6 +237,7 @@ function parseCharacterResponse(
     // fallback minimal profile (should be rare)
     return {
       visible: {
+        caseNumber: 1000, // placeholder; server overwrites deterministically
         name: "Mystery Soul",
         age: 42,
         occupation: "Unknown",
@@ -215,6 +250,19 @@ function parseCharacterResponse(
       },
     };
   }
+}
+
+function sanitizeName(input: string): string {
+  // Remove nicknames/epithets in quotes and normalize whitespace.
+  // Examples:
+  // - Douglas "Cash King" Winston -> Douglas Winston
+  // - Marla “Marlboro” Quince -> Marla Quince
+  const s = (input || "").trim();
+  if (!s) return "Unknown";
+  const withoutQuoted = s.replace(/["“”'‘’][^"“”'‘’]{1,60}["“”'‘’]/g, " ").trim();
+  const withoutParens = withoutQuoted.replace(/\(([^)]{1,60})\)/g, " ").trim();
+  const normalized = withoutParens.replace(/\s+/g, " ").trim();
+  return normalized || "Unknown";
 }
 
 

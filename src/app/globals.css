@@ -49,4 +49,27 @@ button,
   }
 }
 
+@keyframes pgBob {
+  0% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+  100% {
+    transform: translateY(0px);
+  }
+}
+
+.pg-bob {
+  animation: pgBob 6.5s ease-in-out infinite;
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pg-bob {
+    animation: none;
+  }
+}
+
 

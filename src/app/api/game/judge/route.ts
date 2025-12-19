@@ -90,7 +90,6 @@ CHARACTER CARD (PLAYER SAW THIS):
 - AGE: ${visible.age}
 - OCCUPATION: ${visible.occupation}
 - CAUSE OF DEATH: ${visible.causeOfDeath}
-- QUOTE: ${visible.quote}
 
 HIDDEN TRUTH (FOR YOU ONLY):
 - BIO: ${hidden.bio}

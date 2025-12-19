@@ -3,6 +3,7 @@ import { DEFAULT_MODEL_ID, getOpenAIClient } from "@/lib/openai";
 import { kvGetJSON } from "@/lib/storage";
 import { profileKeyFor } from "@/lib/profileKeys";
 import { MAX_QUESTION_CHARS, MAX_QUESTIONS } from "@/lib/constants";
+import { godObviousQuestionWarning, isObviousAlignmentQuestion } from "@/lib/obviousQuestionGuard";
 import type { CharacterProfile, GameMode, QAItem } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -39,6 +40,10 @@ export async function POST(req: Request) {
     }
     if (!gameId && mode !== "daily") {
       return NextResponse.json({ error: "Missing gameId" }, { status: 400 });
+    }
+
+    if (isObviousAlignmentQuestion(question)) {
+      return NextResponse.json({ blocked: true, godMessage: godObviousQuestionWarning() });
     }
 
     const key = profileKeyFor(mode, gameId || dateKey, dateKey);
@@ -93,7 +98,6 @@ VISIBLE CARD (player can see this):
 - Age: ${visible.age}
 - Occupation: ${visible.occupation}
 - Cause of death: ${visible.causeOfDeath}
-- Quote: ${visible.quote}
 
 HIDDEN TRUTH (for you only; do NOT directly enumerate it unless asked about specifics):
 - True alignment: ${alignment}

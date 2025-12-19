@@ -26,7 +26,7 @@ export function Game() {
   const qaScrollRef = useRef<HTMLDivElement | null>(null);
   const faceRef = useRef<HTMLDivElement | null>(null);
 
-  const qaCount = state?.qa.length ?? 0;
+  const qaCount = state?.qa.filter((x) => (x.from || "SOUL") === "SOUL").length ?? 0;
   const questionsLeft = MAX_QUESTIONS - qaCount;
 
   useEffect(() => {
@@ -70,9 +70,6 @@ export function Game() {
     <div className="h-full flex flex-col">
       <header className="px-5 pt-2 pb-2 flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <div className="text-[0.6rem] tracking-[0.35em] uppercase text-pg-muted">
-            Tonight’s judgment
-          </div>
           <div className="font-display text-xl text-pg-gold drop-shadow-[0_6px_16px_rgba(0,0,0,0.7)]">
             Pearly Gates
           </div>
@@ -107,7 +104,7 @@ export function Game() {
       ) : (
         <div className="flex-1 flex flex-col min-h-0">
           {/* Top half: Gates */}
-          <section className="flex-1 min-h-0 relative overflow-hidden px-4 pb-3">
+          <section className="flex-1 min-h-0 relative overflow-hidden px-4 pb-3 bg-white">
             <div className="absolute inset-0 pointer-events-none">
               {/* clouds */}
               <div className="absolute -bottom-10 left-1/2 -translate-x-1/2 w-[140%] h-40 bg-white/10 blur-2xl rounded-full" />
@@ -116,52 +113,18 @@ export function Game() {
               <div className="absolute top-8 right-10 w-36 h-36 bg-pg-gold/15 blur-2xl rounded-full" />
             </div>
 
-            {/* Gates illustration */}
-            <div className="absolute inset-x-0 top-8 flex items-start justify-center pointer-events-none">
-              <div className="relative w-64 h-40">
-                <div className="absolute left-0 top-8 w-16 h-28 rounded-2xl bg-white/10 border border-white/15 shadow-inner" />
-                <div className="absolute right-0 top-8 w-16 h-28 rounded-2xl bg-white/10 border border-white/15 shadow-inner" />
-                <div className="absolute left-1/2 -translate-x-1/2 top-0 w-40 h-24 rounded-t-[999px] bg-white/10 border border-white/15 shadow-inner" />
-                <div className="absolute left-1/2 -translate-x-1/2 top-10 w-40 h-28 rounded-2xl border border-white/10 bg-black/10" />
-              </div>
-            </div>
-
-            {/* Visible card */}
-            <div className="relative z-10 pt-2">
-              <div className="rounded-2xl bg-black/25 border border-white/10 px-4 py-3 shadow-inner">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="text-[0.6rem] tracking-[0.25em] uppercase text-pg-muted">
-                      Soul intake card
-                    </div>
-                    <div className="mt-1 text-sm font-semibold text-pg-text truncate">
-                      {hasProfile ? state.visible.name : "Loading…"}
-                    </div>
-                    <div className="mt-0.5 text-[0.8rem] text-pg-muted">
-                      {hasProfile ? `${state.visible.age} • ${state.visible.occupation}` : ""}
-                    </div>
-                  </div>
-                  <div className="flex-shrink-0 text-right">
-                    <div className="text-[0.6rem] tracking-[0.25em] uppercase text-pg-muted">
-                      Cause
-                    </div>
-                    <div className="mt-1 text-[0.8rem] text-pg-text max-w-[10rem]">
-                      {hasProfile ? state.visible.causeOfDeath : ""}
-                    </div>
-                  </div>
-                </div>
-                <div className="mt-2 text-[0.75rem] text-pg-muted italic">
-                  “{hasProfile ? state.visible.quote : "…"}”
-                </div>
-              </div>
-            </div>
-
-            {/* Character face */}
-            <div className="absolute inset-x-0 bottom-4 flex items-end justify-center">
-              <div className="relative">
+            {/* Gates asset + character face */}
+            <div className="absolute inset-x-0 top-8 bottom-6 flex items-center justify-center">
+              <div className="relative w-[min(340px,85%)]">
+                <img
+                  src="/gates.webp"
+                  alt="Pearly gates"
+                  className="w-full h-auto select-none pointer-events-none pg-bob"
+                  draggable={false}
+                />
                 <div
                   ref={faceRef}
-                  className="select-none text-[92px] leading-none drop-shadow-[0_10px_24px_rgba(0,0,0,0.75)]"
+                  className="absolute left-1/2 top-[44%] -translate-x-1/2 -translate-y-1/2 select-none text-[92px] leading-none drop-shadow-[0_10px_24px_rgba(0,0,0,0.75)]"
                   aria-label="Character face"
                 >
                   {faceEmoji}
@@ -192,10 +155,10 @@ export function Game() {
             )}
 
             {!state.isComplete ? (
-              <div className="text-[0.75rem] text-pg-muted flex items-center justify-between">
+              <div className="text-[0.7rem] text-pg-muted flex items-center justify-between gap-2">
                 <span className="uppercase tracking-[0.18em]">Interrogation</span>
-                <span className="text-pg-gold font-semibold">
-                  Questions left: {questionsLeft}/{MAX_QUESTIONS}
+                <span className="text-pg-gold font-semibold whitespace-nowrap">
+                  {questionsLeft}/{MAX_QUESTIONS} left
                 </span>
               </div>
             ) : (
@@ -211,124 +174,163 @@ export function Game() {
               </div>
             )}
 
-            {/* Q/A log */}
-            <div
-              ref={qaScrollRef}
-              className="flex-1 min-h-0 overflow-y-auto rounded-2xl border border-white/10 bg-black/25 px-3 py-2"
-            >
-              {state.qa.length === 0 && !state.isComplete ? (
-                <div className="py-8 text-center text-pg-muted text-sm">
-                  Ask up to five questions. Then drag a stamp onto their face.
-                </div>
-              ) : (
-                <div className="space-y-3 py-1">
-                  {state.qa.map((item, idx) => (
-                    <div key={idx} className="space-y-2">
-                      <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2">
-                        <div className="text-[0.6rem] tracking-[0.18em] uppercase text-pg-muted">
-                          You
-                        </div>
-                        <div className="text-sm text-pg-text">{item.q}</div>
-                      </div>
-                      <div className="rounded-xl border border-pg-gold/25 bg-pg-gold/10 px-3 py-2">
-                        <div className="text-[0.6rem] tracking-[0.18em] uppercase text-pg-muted">
-                          {state.visible.name || "Soul"}
-                        </div>
-                        <div className="text-sm text-pg-text">{item.a}</div>
-                      </div>
-                    </div>
-                  ))}
+            <div className="flex-1 min-h-0 flex gap-3">
+              {/* Left: interrogation */}
+              <div className="flex-1 min-w-0 flex flex-col gap-3">
+                {/* Stamps at top (saves vertical space elsewhere) */}
+                {!state.isComplete && (
+                  <div className="flex items-center justify-center gap-2">
+                    <DraggableStamp
+                      label="HEAVEN"
+                      colorClass="bg-pg-green/20 border-pg-green/50 text-pg-green"
+                      disabled={!canStamp}
+                      faceRef={faceRef}
+                      onStamp={() => handleStamp("HEAVEN")}
+                    />
+                    <DraggableStamp
+                      label="HELL"
+                      colorClass="bg-pg-red/20 border-pg-red/50 text-pg-red"
+                      disabled={!canStamp}
+                      faceRef={faceRef}
+                      onStamp={() => handleStamp("HELL")}
+                    />
+                  </div>
+                )}
 
-                  {state.isComplete && state.godMessage && (
-                    <div className="rounded-2xl border border-pg-gold/30 bg-black/35 px-3 py-3">
-                      <div className="text-[0.6rem] tracking-[0.25em] uppercase text-pg-gold">
-                        GOD
-                      </div>
-                      <pre className="mt-2 whitespace-pre-wrap text-[0.85rem] leading-snug font-semibold text-pg-text">
-                        {state.godMessage}
-                      </pre>
+                {/* Q/A log */}
+                <div
+                  ref={qaScrollRef}
+                  className="flex-1 min-h-0 overflow-y-auto rounded-2xl border border-white/10 bg-black/25 px-2.5 py-2"
+                >
+                  {state.qa.length === 0 && !state.isComplete ? (
+                    <div className="py-8 text-center text-pg-muted text-sm">
+                      Ask up to five questions. Then drag a stamp onto their face.
+                    </div>
+                  ) : (
+                    <div className="space-y-2 py-1">
+                      {state.qa.map((item, idx) => {
+                        const from = item.from || "SOUL";
+                        const speakerLabel = from === "GOD" ? "GOD" : state.visible.name || "Soul";
+                        const bubbleClass =
+                          from === "GOD"
+                            ? "rounded-xl border border-pg-gold/30 bg-black/35 px-2.5 py-2"
+                            : "rounded-xl border border-pg-gold/25 bg-pg-gold/10 px-2.5 py-2";
+                        const labelClass =
+                          from === "GOD"
+                            ? "text-[0.6rem] tracking-[0.25em] uppercase text-pg-gold"
+                            : "text-[0.6rem] tracking-[0.18em] uppercase text-pg-muted";
+                        return (
+                        <div key={idx} className="space-y-1.5">
+                          <div className="rounded-xl border border-white/10 bg-white/5 px-2.5 py-2">
+                            <div className="text-[0.6rem] tracking-[0.18em] uppercase text-pg-muted">
+                              You
+                            </div>
+                            <div className="text-[0.85rem] leading-snug text-pg-text">
+                              {item.q}
+                            </div>
+                          </div>
+                          <div className={bubbleClass}>
+                            <div className={labelClass}>{speakerLabel}</div>
+                            <div className="text-[0.85rem] leading-snug text-pg-text whitespace-pre-wrap">
+                              {item.a}
+                            </div>
+                          </div>
+                        </div>
+                        );
+                      })}
+
+                      {state.isComplete && state.godMessage && (
+                        <div className="rounded-2xl border border-pg-gold/30 bg-black/35 px-3 py-3">
+                          <div className="text-[0.6rem] tracking-[0.25em] uppercase text-pg-gold">
+                            GOD
+                          </div>
+                          <pre className="mt-2 whitespace-pre-wrap text-[0.85rem] leading-snug font-semibold text-pg-text">
+                            {state.godMessage}
+                          </pre>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
-              )}
-            </div>
 
-            {/* If complete but no verdict yet: retry */}
-            {state.isComplete && !state.godMessage && (
-              <button
-                type="button"
-                onClick={retryVerdict}
-                className="w-full rounded-full bg-gradient-to-r from-pg-gold to-pg-cyan px-4 py-2 text-sm font-bold text-black shadow-pg-glow disabled:opacity-60"
-                disabled={judging}
-              >
-                {judging ? "Summoning…" : "Retry verdict"}
-              </button>
-            )}
-
-            {/* Input row */}
-            {!state.isComplete && (
-              <div className="space-y-2">
-                <div className="relative">
-                  <input
-                    value={question}
-                    onChange={(e) => setQuestion(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        onSubmitQuestion();
-                      }
-                    }}
-                    maxLength={MAX_QUESTION_CHARS}
-                    placeholder="Ask a question…"
-                    className="w-full rounded-2xl bg-black/35 border border-white/15 pl-4 pr-16 py-3 text-sm text-pg-text shadow-inner"
-                    disabled={!canAsk}
-                    aria-label="Question"
-                  />
-                  <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-[0.7rem] text-pg-muted/70">
-                    {question.length}/{MAX_QUESTION_CHARS}
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between gap-2">
+                {/* If complete but no verdict yet: retry */}
+                {state.isComplete && !state.godMessage && (
                   <button
                     type="button"
-                    onClick={onSubmitQuestion}
-                    disabled={!canAsk || !question.trim()}
-                    className="flex-1 rounded-full bg-gradient-to-r from-pg-gold to-pg-cyan px-4 py-2 text-sm font-bold text-black shadow-pg-glow disabled:opacity-60 disabled:cursor-not-allowed"
+                    onClick={retryVerdict}
+                    className="w-full rounded-full bg-gradient-to-r from-pg-gold to-pg-cyan px-4 py-2 text-sm font-bold text-black shadow-pg-glow disabled:opacity-60"
+                    disabled={judging}
                   >
-                    {asking ? "Asking…" : `Ask (${qaCount + 1}/${MAX_QUESTIONS})`}
+                    {judging ? "Summoning…" : "Retry verdict"}
                   </button>
-                  <div className="text-[0.7rem] text-pg-muted whitespace-nowrap">
-                    Day key: <span className="text-pg-text">{todayKey}</span>
+                )}
+
+                {/* Input row */}
+                {!state.isComplete && (
+                  <div className="space-y-1.5">
+                    <div className="relative">
+                      <input
+                        value={question}
+                        onChange={(e) => setQuestion(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            onSubmitQuestion();
+                          }
+                        }}
+                        maxLength={MAX_QUESTION_CHARS}
+                        placeholder="Ask a question…"
+                        className="w-full rounded-2xl bg-black/35 border border-white/15 pl-3.5 pr-16 py-2.5 text-[0.9rem] text-pg-text shadow-inner"
+                        disabled={!canAsk}
+                        aria-label="Question"
+                      />
+                      <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-[0.7rem] text-pg-muted/70">
+                        {question.length}/{MAX_QUESTION_CHARS}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-2">
+                      <button
+                        type="button"
+                        onClick={onSubmitQuestion}
+                        disabled={!canAsk || !question.trim()}
+                        className="flex-1 rounded-full bg-gradient-to-r from-pg-gold to-pg-cyan px-4 py-2 text-[0.85rem] font-bold text-black shadow-pg-glow disabled:opacity-60 disabled:cursor-not-allowed"
+                      >
+                        {asking ? "Asking…" : `Ask (${qaCount + 1}/${MAX_QUESTIONS})`}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Right: character info panel */}
+              <aside className="w-[40%] max-w-[14.5rem] min-w-[10.5rem] flex flex-col">
+                <div className="flex-1 min-h-0 rounded-2xl bg-black/25 border border-white/10 px-3 py-3 shadow-inner overflow-y-auto">
+                  <div className="text-[0.6rem] tracking-[0.25em] uppercase text-pg-muted">
+                    Soul intake card
+                  </div>
+
+                  <div className="mt-2 space-y-2">
+                    <div className="text-sm font-semibold text-pg-text break-words leading-snug">
+                      {hasProfile ? state.visible.name : "Loading…"}
+                    </div>
+
+                    <div className="text-[0.8rem] text-pg-muted leading-snug break-words">
+                      {hasProfile ? `${state.visible.age} • ${state.visible.occupation}` : ""}
+                    </div>
+
+                    <div className="pt-1 border-t border-white/10">
+                      <div className="text-[0.65rem] tracking-[0.18em] uppercase text-pg-muted">
+                        Cause of death
+                      </div>
+                      <div className="mt-1 text-[0.85rem] text-pg-text leading-snug break-words">
+                        {hasProfile ? state.visible.causeOfDeath : ""}
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
-
-            {/* Stamp tray */}
-            {!state.isComplete && (
-              <div className="pt-1">
-                <div className="text-[0.6rem] tracking-[0.25em] uppercase text-pg-muted text-center">
-                  Drag to stamp
-                </div>
-                <div className="mt-2 flex items-center justify-center gap-3">
-                  <DraggableStamp
-                    label="HEAVEN"
-                    colorClass="bg-pg-green/20 border-pg-green/50 text-pg-green"
-                    disabled={!canStamp}
-                    faceRef={faceRef}
-                    onStamp={() => handleStamp("HEAVEN")}
-                  />
-                  <DraggableStamp
-                    label="HELL"
-                    colorClass="bg-pg-red/20 border-pg-red/50 text-pg-red"
-                    disabled={!canStamp}
-                    faceRef={faceRef}
-                    onStamp={() => handleStamp("HELL")}
-                  />
-                </div>
-              </div>
-            )}
+              </aside>
+            </div>
           </section>
         </div>
       )}
@@ -363,7 +365,7 @@ function DraggableStamp({
     <>
       <button
         type="button"
-        className={`relative select-none rounded-2xl border px-5 py-3 text-sm font-black tracking-[0.18em] uppercase shadow-inner ${colorClass} ${
+        className={`relative select-none rounded-2xl border px-4 py-2 text-[0.8rem] font-black tracking-[0.18em] uppercase shadow-inner ${colorClass} ${
           disabled ? "opacity-50 cursor-not-allowed" : "active:scale-[0.98]"
         }`}
         disabled={disabled}
@@ -390,7 +392,7 @@ function DraggableStamp({
 
       {drag?.active && (
         <div
-          className={`fixed left-0 top-0 pointer-events-none z-50 select-none rounded-2xl border px-5 py-3 text-sm font-black tracking-[0.18em] uppercase ${colorClass}`}
+          className={`fixed left-0 top-0 pointer-events-none z-50 select-none rounded-2xl border px-4 py-2 text-[0.8rem] font-black tracking-[0.18em] uppercase ${colorClass}`}
           style={{
             transform: `translate(${drag.x}px, ${drag.y}px) translate(-50%, -50%) rotate(-8deg)`,
             boxShadow: "0 18px 40px rgba(0,0,0,0.65)",

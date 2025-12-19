@@ -145,8 +145,7 @@ OUTPUT REQUIREMENTS:
     "name": string,
     "age": number,
     "occupation": string,
-    "causeOfDeath": string,
-    "quote": string
+    "causeOfDeath": string
   },
   "hidden": {
     "bio": string,
@@ -163,7 +162,6 @@ CONTENT REQUIREMENTS:
   - If EVIL: worstActs should be clearly damning; bestActs can exist but should not redeem them.
 - "bio" should be 3–5 short sentences.
 - Each act (best/worst) should be a single sentence fragment (one line).
-- "quote" should be one line that sounds like the person and hints at their worldview.
 - Keep all strings <= 160 characters when possible.
 
 IMPORTANT WORLD RULE:
@@ -186,7 +184,6 @@ function parseCharacterResponse(
       age: Number.isFinite(visible.age) ? Math.max(1, Math.min(120, Math.round(visible.age))) : 42,
       occupation: String(visible.occupation || "Unemployed"),
       causeOfDeath: String(visible.causeOfDeath || "Unknown"),
-      quote: String(visible.quote || "…"),
     };
 
     const to3 = (arr: any): [string, string, string] => {
@@ -210,7 +207,6 @@ function parseCharacterResponse(
         age: 42,
         occupation: "Unknown",
         causeOfDeath: "Unknown",
-        quote: `(${faceEmoji})`,
       },
       hidden: {
         bio: "A soul with an unclear past.",

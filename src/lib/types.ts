@@ -7,7 +7,6 @@ export type VisibleProfile = {
   age: number;
   occupation: string;
   causeOfDeath: string;
-  quote: string;
 };
 
 export type HiddenProfile = {
@@ -27,7 +26,7 @@ export type CharacterProfile = {
   hidden: HiddenProfile;
 };
 
-export type QAItem = { q: string; a: string };
+export type QAItem = { q: string; a: string; from?: "SOUL" | "GOD" };
 
 export type ClientGameState = {
   mode: GameMode;

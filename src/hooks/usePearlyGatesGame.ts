@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { DAILY_STORAGE_KEY, MAX_QUESTION_CHARS, MAX_QUESTIONS } from "@/lib/constants";
 import { todayLocalDateKey } from "@/lib/dateKey";
+import { godObviousQuestionWarning, isObviousAlignmentQuestion } from "@/lib/obviousQuestionGuard";
 import type { ClientGameState, GameMode, QAItem } from "@/lib/types";
 
 type StartResponse = {
@@ -14,12 +15,11 @@ type StartResponse = {
     age: number;
     occupation: string;
     causeOfDeath: string;
-    quote: string;
   };
   faceEmoji: string;
 };
 
-type AskResponse = { answer: string };
+type AskResponse = { answer?: string; blocked?: boolean; godMessage?: string };
 type JudgeResponse = { correct: boolean; godMessage: string };
 
 function reviveState(raw: unknown): ClientGameState | null {
@@ -41,7 +41,6 @@ function makeEmptyState(mode: GameMode, dateKey: string, gameId: string): Client
       age: 0,
       occupation: "",
       causeOfDeath: "",
-      quote: "",
       faceEmoji: "🙂",
     },
     qa: [],
@@ -90,8 +89,7 @@ export function usePearlyGatesGame() {
   const hasProfile = Boolean(
     state?.visible?.name &&
       state.visible.occupation &&
-      state.visible.causeOfDeath &&
-      state.visible.quote,
+      state.visible.causeOfDeath,
   );
 
   const start = useCallback(
@@ -164,7 +162,8 @@ export function usePearlyGatesGame() {
         setError(`Question must be ${MAX_QUESTION_CHARS} characters or fewer.`);
         return;
       }
-      if (state.qa.length >= MAX_QUESTIONS) {
+      const askedSoFar = state.qa.filter((x) => (x.from || "SOUL") === "SOUL").length;
+      if (askedSoFar >= MAX_QUESTIONS) {
         setError("No questions remaining.");
         return;
       }
@@ -172,6 +171,17 @@ export function usePearlyGatesGame() {
       setError(null);
       setAsking(true);
       try {
+        // Client-side fast path so we don't spend tokens on obvious questions.
+        if (isObviousAlignmentQuestion(trimmed)) {
+          const item: QAItem = {
+            q: trimmed,
+            a: godObviousQuestionWarning(),
+            from: "GOD",
+          };
+          setState((prev) => (prev ? { ...prev, qa: [...prev.qa, item] } : prev));
+          return;
+        }
+
         const res = await fetch("/api/game/ask", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -180,17 +190,23 @@ export function usePearlyGatesGame() {
             dateKey: state.dateKey,
             gameId: state.gameId,
             question: trimmed,
-            qaSoFar: state.qa,
+            qaSoFar: state.qa.filter((x) => (x.from || "SOUL") === "SOUL"),
           }),
         });
         if (!res.ok) throw new Error("ask failed");
         const data = (await res.json()) as AskResponse;
-        const a = (data.answer || "").toString();
-        const item: QAItem = { q: trimmed, a };
-        setState((prev) => {
-          if (!prev) return prev;
-          return { ...prev, qa: [...prev.qa, item] };
-        });
+        if (data.blocked) {
+          const item: QAItem = {
+            q: trimmed,
+            a: (data.godMessage || godObviousQuestionWarning()).toString(),
+            from: "GOD",
+          };
+          setState((prev) => (prev ? { ...prev, qa: [...prev.qa, item] } : prev));
+        } else {
+          const a = (data.answer || "").toString();
+          const item: QAItem = { q: trimmed, a, from: "SOUL" };
+          setState((prev) => (prev ? { ...prev, qa: [...prev.qa, item] } : prev));
+        }
       } catch {
         setError("Could not get an answer. Try again.");
       } finally {

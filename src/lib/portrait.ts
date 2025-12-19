@@ -55,8 +55,8 @@ export async function generateAndStorePortrait(args: {
 
 function buildPortraitPrompt(visible: VisibleProfile, hidden: HiddenProfile): string {
   // Gemini "Nano Banana" does not support transparency, so we force a chroma key background.
-  // We'll key out the exact lime green on the server.
-  return `Create a CLOSE-UP head-and-shoulders BUST portrait of this deceased human soul for a mobile web game.
+  // We'll key out the background on the server.
+  return `Create a WAIST-UP portrait of this deceased human soul for a mobile web game.
 
 Style:
 - Clean, readable, slightly stylized illustration (not photoreal).
@@ -65,8 +65,8 @@ Style:
 - SINGLE SOLID BACKGROUND color: pure lime green #00FF00 filling the entire background. No gradients, no shadows on background.
 - The subject must NOT contain lime green (#00FF00) anywhere (no green clothes, no green accessories, no green lighting).
 - Clothing colors: ONLY neutral/dark tones (black, navy, charcoal, brown). Avoid all greens and yellow-greens entirely.
-- Crop: HEAD AND SHOULDERS ONLY, cut off around upper chest. NO full torso. NO arms. NO hands. NO props.
-- Framing: the head+shoulders should fill ~75–85% of the image height. Centered, facing forward.
+- Crop: WAIST-UP (head, shoulders, torso down to waist). Arms are allowed but keep hands simple (or omit hands).
+- Framing: the person should fill ~80–95% of the image height. Centered, facing forward.
 
 Character details:
 - Name: ${visible.name}

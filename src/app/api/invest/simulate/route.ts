@@ -96,10 +96,17 @@ export async function POST(req: Request) {
     const clampedUnits = clampInt(unitsSold, INVEST_MIN_UNITS_SOLD, INVEST_MAX_UNITS_SOLD);
     const grossRevenueUsd = clampedUnits * invention.unitPriceUsd;
     const payoutUsd = Math.round(grossRevenueUsd * ownershipShare);
+    const summary = formatMarketSummary({
+      modelBlurb: narrative,
+      unitsSold: clampedUnits,
+      unitPriceUsd: invention.unitPriceUsd,
+      grossRevenueUsd,
+      payoutUsd,
+    });
 
     return NextResponse.json({
       unitsSold: clampedUnits,
-      narrative,
+      narrative: summary,
       grossRevenueUsd,
       ownershipShare,
       payoutUsd,
@@ -138,6 +145,7 @@ HARD RULES:
 - The narrative should justify the scale of unitsSold (why so many / why so few).
 - Keep it funny, but make it causally coherent: product -> marketing -> consumer reaction -> consequences.
 - If you introduce new facts, frame them as market events that occurred, not things the player already knew.
+- CRITICAL: Do NOT mention any specific dollar amounts, prices, valuations, COGS, or percentages in the narrative. The UI will show the numbers.
 
 PRODUCT FACTS:
 - Title: ${args.invention.title}
@@ -163,7 +171,8 @@ Respond ONLY with strict JSON in this exact shape:
 {"unitsSold": number, "narrative": "string"}
 
 NARRATIVE FORMAT:
-- A 5-9 sentence characterful narrative from an unaffiliated Market Analyst giving the day's news.
+- EXACTLY 2 short sentences (no line breaks).
+- NO headings, NO labels, NO bullet points.
 `.trim();
 }
 
@@ -187,8 +196,55 @@ function parseSimResponse(raw: string): { unitsSold: number; narrative: string }
     unitsSold: unitsMatch ? Number(unitsMatch[1]) : 1,
     narrative:
       (narMatch && narMatch[1] ? narMatch[1].trim() : "") ||
-      "THE MARKET SPOKE.\nIT WAS MOSTLY COUGHING.\n(TRY AGAIN TOMORROW.)",
+      "The market made a sound. It was… complicated.",
   };
+}
+
+const usdFmt = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+  maximumFractionDigits: 0,
+});
+
+function sanitizeBlurb(input: string): string {
+  let s = String(input || "").trim();
+  if (!s) return "";
+  // Remove line breaks and header-y patterns just in case.
+  s = s
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => !/^[a-z][a-z0-9 _-]{0,18}\s*:\s*\S+/i.test(line))
+    .join(" ");
+  s = s.replace(/\s+/g, " ").trim();
+
+  // Remove explicit money/percent figures if the model included them anyway.
+  // Examples: "$79", "$79.99", "79 dollars", "USD 79", "75%", "1,000,000"
+  s = s
+    .replace(/\$[\d,]+(?:\.\d+)?/g, "")
+    .replace(/\bUSD\s*[\d,]+(?:\.\d+)?\b/gi, "")
+    .replace(/\b[\d,]+(?:\.\d+)?\s*(dollars|bucks)\b/gi, "")
+    .replace(/\b[\d,]+\s*%\b/g, "")
+    .replace(/\b[\d,]{4,}\b/g, ""); // strip big raw numbers (sales counts etc.)
+  s = s.replace(/\s+/g, " ").trim();
+
+  // Keep only first 2 sentences.
+  const sentences =
+    s.match(/[^.!?]+[.!?]+|[^.!?]+$/g)?.map((x) => x.trim()).filter(Boolean) ?? [];
+  return sentences.slice(0, 2).join(" ").trim();
+}
+
+function formatMarketSummary(args: {
+  modelBlurb: string;
+  unitsSold: number;
+  unitPriceUsd: number;
+  grossRevenueUsd: number;
+  payoutUsd: number;
+}): string {
+  const blurb = sanitizeBlurb(args.modelBlurb) || "The market reacted. The details are… vivid.";
+  const unitsLine = `Units sold: ${args.unitsSold.toLocaleString("en-US")} @ ${usdFmt.format(args.unitPriceUsd)}`;
+  const revenueLine = `Product gross revenue: ${usdFmt.format(args.grossRevenueUsd)}`;
+  const payoutLine = `Your payout: ${usdFmt.format(args.payoutUsd)}`;
+  return [blurb, "", unitsLine, revenueLine, payoutLine].join("\n");
 }
 
 

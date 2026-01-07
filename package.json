@@ -3,7 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "node -e \"require('fs').rmSync('.next',{recursive:true,force:true});\" && next dev",
+    "dev:turbo": "node -e \"require('fs').rmSync('.next',{recursive:true,force:true});\" && next dev --turbo",
     "build": "next build",
     "start": "next start"
   },

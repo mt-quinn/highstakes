@@ -5,6 +5,7 @@ import { DEFAULT_MODEL_ID, getOpenAIClient } from "@/lib/openai";
 import { kvGetJSON, kvSetJSON } from "@/lib/storage";
 import { investSlateKeyFor } from "@/lib/investKeys";
 import { pickDescriptors } from "@/lib/descriptors";
+import { hash32 } from "@/lib/hash";
 import {
   INVEST_INVENTIONS_PER_DAY,
   INVEST_UNIT_PRICE_MAX_USD,
@@ -99,6 +100,26 @@ export async function POST(req: Request) {
       C: { notes: "", regulatoryRisk: "low", demandProfile: "niche" },
     };
 
+    // Pre-pick distinct price + valuation targets for the slate to encourage variety.
+    // Unit price uses explicit bands (requested):
+    // - low: 5–50
+    // - mid: 100–500
+    // - high: 1000–3000
+    // We pass these into the prompt so the model can build products appropriate to the numbers.
+    const priceTargets = pickTripletFromBuckets({
+      seed: `${seed}:unitPrice`,
+      buckets: [
+        [5, 50],
+        [100, 500],
+        [1000, 3000],
+      ],
+    });
+    const valuationTargets = makeVariedNumberTriplet({
+      seed: `${seed}:valuation`,
+      min: INVEST_VALUATION_MIN_USD,
+      max: INVEST_VALUATION_MAX_USD,
+    });
+
     for (const id of ids) {
       const descriptors = pickDescriptors({
         seed: `${seed}:${id}`,
@@ -107,10 +128,16 @@ export async function POST(req: Request) {
       });
       for (const d of descriptors) avoid.add(d.trim().toLowerCase());
 
+      const idx = id === "A" ? 0 : id === "B" ? 1 : 2;
+      const unitPriceUsd = Math.max(INVEST_UNIT_PRICE_MIN_USD, Math.min(INVEST_UNIT_PRICE_MAX_USD, priceTargets[idx]!));
+      const valuationUsd = Math.max(INVEST_VALUATION_MIN_USD, Math.min(INVEST_VALUATION_MAX_USD, valuationTargets[idx]!));
+      const unitCogsUsd = clampInt(Math.round(unitPriceUsd * (0.35 + (hash32(`${seed}:${id}:cogs`) % 40) / 100)), 0, unitPriceUsd);
+
       const generated = await generateInvention({
         seed: `${seed}:${id}`,
         id,
         descriptors: [descriptors[0] || "consumer annoyance", descriptors[1] || "bureaucratic form"],
+        fixedNumbers: { valuationUsd, unitPriceUsd, unitCogsUsd },
       });
 
       inventions.push(generated.invention);
@@ -166,9 +193,10 @@ async function generateInvention(args: {
   seed: string;
   id: InventionId;
   descriptors: [string, string];
+  fixedNumbers: { valuationUsd: number; unitPriceUsd: number; unitCogsUsd: number };
 }): Promise<{ invention: Invention; hidden: HiddenInventionTruth }> {
   const openai = getOpenAIClient();
-  const prompt = buildInventionPrompt(args.seed, args.id, args.descriptors);
+  const prompt = buildInventionPrompt(args.seed, args.id, args.descriptors, args.fixedNumbers);
   const response = await openai.chat.completions.create({
     model: DEFAULT_MODEL_ID,
     messages: [{ role: "system", content: prompt }],
@@ -178,16 +206,26 @@ async function generateInvention(args: {
   });
 
   const raw = response.choices[0]?.message?.content?.trim() ?? "";
-  return parseInventionResponse(raw, args.id, args.descriptors);
+  return parseInventionResponse(raw, args.id, args.descriptors, args.fixedNumbers);
 }
 
-function buildInventionPrompt(seed: string, id: InventionId, descriptors: [string, string]): string {
+function buildInventionPrompt(
+  seed: string,
+  id: InventionId,
+  descriptors: [string, string],
+  fixedNumbers: { valuationUsd: number; unitPriceUsd: number; unitCogsUsd: number },
+): string {
   const [d1, d2] = descriptors;
+  const { valuationUsd, unitPriceUsd, unitCogsUsd } = fixedNumbers;
   return `You are generating one invention pitch for a comedic daily investor game called "High Stakes".
 
 SEED (for determinism cues only): ${seed}
 SLOT ID: ${id}
 MANDATORY DESCRIPTORS (must strongly shape the invention): ${d1} + ${d2}
+FIXED BUSINESS NUMBERS (these are given facts about the product):
+- valuationUsd: ${valuationUsd}
+- unitPriceUsd: ${unitPriceUsd}
+- unitCogsUsd: ${unitCogsUsd}
 
 OUTPUT REQUIREMENTS:
 - Respond ONLY with strict JSON (no extra text).
@@ -196,10 +234,7 @@ OUTPUT REQUIREMENTS:
   "invention": {
     "title": string,
     "pitch": string,
-    "category": string,
-    "valuationUsd": number,
-    "unitPriceUsd": number,
-    "unitCogsUsd": number
+    "category": string
   },
   "hidden": {
     "notes": string,
@@ -215,10 +250,10 @@ CONTENT REQUIREMENTS:
 - The pitch MUST be EXACTLY 2 short sentences.
 - Each sentence should be short (aim for <= 120 characters per sentence).
 - NO headings, NO labels, NO bullet points, NO line breaks, NO "Hook:"/"Target:"/"Problem:" formats.
-- Numbers MUST be within bounds:
-  - valuationUsd: ${INVEST_VALUATION_MIN_USD}..${INVEST_VALUATION_MAX_USD}
-  - unitPriceUsd: ${INVEST_UNIT_PRICE_MIN_USD}..${INVEST_UNIT_PRICE_MAX_USD}
-  - unitCogsUsd: between 0 and unitPriceUsd (can be high).
+- CRITICAL: Do NOT mention valuation, price, COGS, dollars, or any specific numbers in the pitch. The UI will show those.
+- The product title MUST be novel, catchy, and relevant to the invention.
+- CRITICAL: The title MUST NOT contain either descriptor phrase or any descriptor words.
+  - Do NOT include words from: "${d1}" or "${d2}" in the title.
 
 IMPORTANT:
 - Descriptors should suffuse the concept (not just name-dropped).
@@ -234,19 +269,29 @@ function parseInventionResponse(
   raw: string,
   id: InventionId,
   descriptors: [string, string],
+  fixedNumbers: { valuationUsd: number; unitPriceUsd: number; unitCogsUsd: number },
 ): { invention: Invention; hidden: HiddenInventionTruth } {
   try {
     const parsed = JSON.parse(raw) as any;
     const inv = parsed?.invention ?? {};
     const hid = parsed?.hidden ?? {};
 
-    const unitPriceUsd = clampInt(Number(inv.unitPriceUsd), INVEST_UNIT_PRICE_MIN_USD, INVEST_UNIT_PRICE_MAX_USD);
-    const unitCogsUsd = clampInt(Number(inv.unitCogsUsd), 0, unitPriceUsd);
-    const valuationUsd = clampInt(Number(inv.valuationUsd), INVEST_VALUATION_MIN_USD, INVEST_VALUATION_MAX_USD);
+    // We pre-select and enforce these numbers for variety across the slate.
+    const unitPriceUsd = clampInt(
+      fixedNumbers.unitPriceUsd,
+      INVEST_UNIT_PRICE_MIN_USD,
+      INVEST_UNIT_PRICE_MAX_USD,
+    );
+    const unitCogsUsd = clampInt(fixedNumbers.unitCogsUsd, 0, unitPriceUsd);
+    const valuationUsd = clampInt(
+      fixedNumbers.valuationUsd,
+      INVEST_VALUATION_MIN_USD,
+      INVEST_VALUATION_MAX_USD,
+    );
 
     const invention: Invention = {
       id,
-      title: String(inv.title || `Invention ${id}`).trim() || `Invention ${id}`,
+      title: sanitizeTitle(String(inv.title || `Invention ${id}`).trim(), descriptors, `${id}:${unitPriceUsd}:${valuationUsd}`),
       pitch: sanitizePitch(String(inv.pitch || "").trim()) || "A pitch so secret it forgot to show up.",
       category: String(inv.category || "consumer").trim() || "consumer",
       descriptors,
@@ -279,13 +324,13 @@ function parseInventionResponse(
     return {
       invention: {
         id,
-        title: `Invention ${id}`,
+        title: fallbackTitle(descriptors, `${id}:fallback`),
         pitch: "A pitch so secret it forgot to show up.",
         category: "consumer",
         descriptors,
-        valuationUsd: INVEST_VALUATION_MIN_USD,
-        unitPriceUsd: Math.max(INVEST_UNIT_PRICE_MIN_USD, 25),
-        unitCogsUsd: 10,
+        valuationUsd: fixedNumbers.valuationUsd,
+        unitPriceUsd: fixedNumbers.unitPriceUsd,
+        unitCogsUsd: fixedNumbers.unitCogsUsd,
       },
       hidden: { notes: "", regulatoryRisk: "low", demandProfile: "niche" },
     };
@@ -312,6 +357,142 @@ function sanitizePitch(input: string): string {
     s.match(/[^.!?]+[.!?]+|[^.!?]+$/g)?.map((x) => x.trim()).filter(Boolean) ?? [];
   const capped = sentences.slice(0, 2).join(" ").trim();
   return capped;
+}
+
+function normalizeWord(s: string): string {
+  return String(s || "")
+    .toLowerCase()
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/[^a-z0-9]+/g, "")
+    .trim();
+}
+
+function descriptorBannedWords(descriptors: [string, string]): Set<string> {
+  const out = new Set<string>();
+  for (const d of descriptors) {
+    const words = String(d || "")
+      .toLowerCase()
+      .replace(/[\u2018\u2019]/g, "'")
+      .replace(/[^a-z0-9\s]+/g, " ")
+      .split(/\s+/g)
+      .map((w) => w.trim())
+      .filter(Boolean);
+    for (const w of words) {
+      const norm = normalizeWord(w);
+      if (!norm) continue;
+      // Allow tiny glue-words; focus on meaningful tokens.
+      if (norm.length < 3) continue;
+      out.add(norm);
+    }
+  }
+  return out;
+}
+
+function sanitizeTitle(title: string, descriptors: [string, string], seed: string): string {
+  const banned = descriptorBannedWords(descriptors);
+  let s = String(title || "").trim();
+  s = s.replace(/\s+/g, " ").trim();
+  s = s.replace(/[+]/g, " ").replace(/\s+/g, " ").trim();
+
+  // Remove any words that appear in descriptors.
+  const words = s.split(/\s+/g).filter(Boolean);
+  const kept = words.filter((w) => !banned.has(normalizeWord(w)));
+  let cleaned = kept.join(" ").replace(/\s+/g, " ").trim();
+
+  // If we stripped too much, fall back to deterministic catchy name.
+  if (cleaned.length < 3 || cleaned.split(/\s+/g).length < 1) {
+    cleaned = fallbackTitle(descriptors, seed);
+  }
+  return cleaned;
+}
+
+function fallbackTitle(_descriptors: [string, string], seed: string): string {
+  // Deterministic, descriptor-agnostic naming so we never leak the descriptor words into the title.
+  const a = [
+    "Nimbus",
+    "Beacon",
+    "Copper",
+    "Orbit",
+    "Latch",
+    "Kettle",
+    "Quiver",
+    "Sprocket",
+    "Civic",
+    "Pocket",
+    "Velvet",
+    "Signal",
+    "Ribbon",
+    "Rocket",
+    "Gadget",
+    "Honey",
+    "Marble",
+    "Crisp",
+  ];
+  const b = [
+    "Buddy",
+    "Pilot",
+    "Switch",
+    "Vault",
+    "Compass",
+    "Nudge",
+    "Patch",
+    "Dock",
+    "Bloom",
+    "Bridge",
+    "Gauge",
+    "Buddy",
+    "Kit",
+    "Loop",
+    "Works",
+    "Pro",
+  ];
+  const h = hash32(seed);
+  const w1 = a[h % a.length]!;
+  const w2 = b[(Math.imul(h, 2654435761) >>> 0) % b.length]!;
+  return `${w1} ${w2}`;
+}
+
+function makeVariedNumberTriplet(args: {
+  seed: string;
+  min: number;
+  max: number;
+}): [number, number, number] {
+  const range = Math.max(1, args.max - args.min);
+  const third = Math.floor(range / 3);
+  const buckets: Array<[number, number]> = [
+    [args.min, args.min + third],
+    [args.min + third + 1, args.min + 2 * third],
+    [args.min + 2 * third + 1, args.max],
+  ];
+
+  const h = hash32(args.seed);
+  const pickIn = (i: number) => {
+    const [lo, hi] = buckets[i]!;
+    const span = Math.max(1, hi - lo);
+    return lo + (Math.imul(h ^ (i * 0x9e3779b9), 1103515245) >>> 0) % (span + 1);
+  };
+
+  return [pickIn(0), pickIn(1), pickIn(2)];
+}
+
+function pickTripletFromBuckets(args: {
+  seed: string;
+  buckets: Array<[number, number]>;
+}): [number, number, number] {
+  const buckets = args.buckets.slice(0, 3);
+  while (buckets.length < 3) buckets.push(buckets[buckets.length - 1] ?? [0, 0]);
+
+  const h = hash32(args.seed);
+  const pickIn = (i: number) => {
+    const [loRaw, hiRaw] = buckets[i]!;
+    const lo = Math.min(loRaw, hiRaw);
+    const hi = Math.max(loRaw, hiRaw);
+    const span = Math.max(0, hi - lo);
+    const n = (Math.imul(h ^ (i * 0x9e3779b9), 1103515245) >>> 0) % (span + 1);
+    return lo + n;
+  };
+
+  return [pickIn(0), pickIn(1), pickIn(2)];
 }
 
 

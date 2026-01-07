@@ -370,8 +370,18 @@ function InvestModal({
             >
               {revising ? "Rewriting…" : "Apply suggestion"}
             </button>
-            {revisedPitch && <div className="text-[0.7rem] text-pg-muted">Revision ready.</div>}
           </div>
+
+          {revisedPitch && (
+            <div className="mt-1 rounded-2xl border border-white/10 bg-black/25 px-3 py-2">
+              <div className="text-[0.6rem] tracking-[0.22em] uppercase text-pg-muted font-black">
+                Revised pitch (this is what ships)
+              </div>
+              <pre className="mt-1 whitespace-pre-wrap text-[0.82rem] leading-snug text-pg-text/90 font-semibold">
+                {revisedPitch}
+              </pre>
+            </div>
+          )}
 
           <div className="pt-1 border-t border-white/10" />
 

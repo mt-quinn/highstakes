@@ -224,9 +224,6 @@ function InventionCard({
                   <div className="mt-1 text-sm font-bold text-pg-text break-words">
                     {inv.title || "Loading…"}
                   </div>
-                  <div className="mt-1 text-[0.7rem] text-pg-muted break-words">
-                    {inv.descriptors?.filter(Boolean).join(" + ") || ""}
-                  </div>
                 </div>
 
                 <div className="shrink-0 text-right">

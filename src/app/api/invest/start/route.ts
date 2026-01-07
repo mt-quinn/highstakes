@@ -131,13 +131,12 @@ export async function POST(req: Request) {
       const idx = id === "A" ? 0 : id === "B" ? 1 : 2;
       const unitPriceUsd = Math.max(INVEST_UNIT_PRICE_MIN_USD, Math.min(INVEST_UNIT_PRICE_MAX_USD, priceTargets[idx]!));
       const valuationUsd = Math.max(INVEST_VALUATION_MIN_USD, Math.min(INVEST_VALUATION_MAX_USD, valuationTargets[idx]!));
-      const unitCogsUsd = clampInt(Math.round(unitPriceUsd * (0.35 + (hash32(`${seed}:${id}:cogs`) % 40) / 100)), 0, unitPriceUsd);
 
       const generated = await generateInvention({
         seed: `${seed}:${id}`,
         id,
         descriptors: [descriptors[0] || "consumer annoyance", descriptors[1] || "bureaucratic form"],
-        fixedNumbers: { valuationUsd, unitPriceUsd, unitCogsUsd },
+        fixedNumbers: { valuationUsd, unitPriceUsd },
       });
 
       inventions.push(generated.invention);
@@ -193,7 +192,7 @@ async function generateInvention(args: {
   seed: string;
   id: InventionId;
   descriptors: [string, string];
-  fixedNumbers: { valuationUsd: number; unitPriceUsd: number; unitCogsUsd: number };
+  fixedNumbers: { valuationUsd: number; unitPriceUsd: number };
 }): Promise<{ invention: Invention; hidden: HiddenInventionTruth }> {
   const openai = getOpenAIClient();
   const prompt = buildInventionPrompt(args.seed, args.id, args.descriptors, args.fixedNumbers);
@@ -213,10 +212,10 @@ function buildInventionPrompt(
   seed: string,
   id: InventionId,
   descriptors: [string, string],
-  fixedNumbers: { valuationUsd: number; unitPriceUsd: number; unitCogsUsd: number },
+  fixedNumbers: { valuationUsd: number; unitPriceUsd: number },
 ): string {
   const [d1, d2] = descriptors;
-  const { valuationUsd, unitPriceUsd, unitCogsUsd } = fixedNumbers;
+  const { valuationUsd, unitPriceUsd } = fixedNumbers;
   return `You are generating one invention pitch for a comedic daily investor game called "High Stakes".
 
 SEED (for determinism cues only): ${seed}
@@ -225,7 +224,6 @@ MANDATORY DESCRIPTORS (must strongly shape the invention): ${d1} + ${d2}
 FIXED BUSINESS NUMBERS (these are given facts about the product):
 - valuationUsd: ${valuationUsd}
 - unitPriceUsd: ${unitPriceUsd}
-- unitCogsUsd: ${unitCogsUsd}
 
 OUTPUT REQUIREMENTS:
 - Respond ONLY with strict JSON (no extra text).
@@ -250,7 +248,7 @@ CONTENT REQUIREMENTS:
 - The pitch MUST be EXACTLY 2 short sentences.
 - Each sentence should be short (aim for <= 120 characters per sentence).
 - NO headings, NO labels, NO bullet points, NO line breaks, NO "Hook:"/"Target:"/"Problem:" formats.
-- CRITICAL: Do NOT mention valuation, price, COGS, dollars, or any specific numbers in the pitch. The UI will show those.
+- CRITICAL: Do NOT mention valuation, price, dollars, or any specific numbers in the pitch. The UI will show those.
 - The product title MUST be novel, catchy, and relevant to the invention.
 - CRITICAL: The title MUST NOT contain either descriptor phrase or any descriptor words.
   - Do NOT include words from: "${d1}" or "${d2}" in the title.
@@ -269,7 +267,7 @@ function parseInventionResponse(
   raw: string,
   id: InventionId,
   descriptors: [string, string],
-  fixedNumbers: { valuationUsd: number; unitPriceUsd: number; unitCogsUsd: number },
+  fixedNumbers: { valuationUsd: number; unitPriceUsd: number },
 ): { invention: Invention; hidden: HiddenInventionTruth } {
   try {
     const parsed = JSON.parse(raw) as any;
@@ -282,7 +280,6 @@ function parseInventionResponse(
       INVEST_UNIT_PRICE_MIN_USD,
       INVEST_UNIT_PRICE_MAX_USD,
     );
-    const unitCogsUsd = clampInt(fixedNumbers.unitCogsUsd, 0, unitPriceUsd);
     const valuationUsd = clampInt(
       fixedNumbers.valuationUsd,
       INVEST_VALUATION_MIN_USD,
@@ -297,7 +294,6 @@ function parseInventionResponse(
       descriptors,
       valuationUsd,
       unitPriceUsd,
-      unitCogsUsd,
       imageUrl: undefined,
     };
 
@@ -330,7 +326,6 @@ function parseInventionResponse(
         descriptors,
         valuationUsd: fixedNumbers.valuationUsd,
         unitPriceUsd: fixedNumbers.unitPriceUsd,
-        unitCogsUsd: fixedNumbers.unitCogsUsd,
       },
       hidden: { notes: "", regulatoryRisk: "low", demandProfile: "niche" },
     };

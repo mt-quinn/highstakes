@@ -49,7 +49,6 @@ function makeEmptyDayState(mode: GameMode, dateKey: string, gameId: string): Cli
     descriptors: ["", ""],
     valuationUsd: 0,
     unitPriceUsd: 0,
-    unitCogsUsd: 0,
     category: "",
     imageUrl: undefined,
   };

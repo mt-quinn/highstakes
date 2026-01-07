@@ -124,7 +124,6 @@ function buildSimPrompt(args: {
     descriptors: [string, string];
     valuationUsd: number;
     unitPriceUsd: number;
-    unitCogsUsd: number;
     category: string;
   };
   hidden: {
@@ -145,13 +144,12 @@ HARD RULES:
 - The narrative should justify the scale of unitsSold (why so many / why so few).
 - Keep it funny, but make it causally coherent: product -> marketing -> consumer reaction -> consequences.
 - If you introduce new facts, frame them as market events that occurred, not things the player already knew.
-- CRITICAL: Do NOT mention any specific dollar amounts, prices, valuations, COGS, or percentages in the narrative. The UI will show the numbers.
+- CRITICAL: Do NOT mention any specific dollar amounts, prices, valuations, or percentages in the narrative. The UI will show the numbers.
 
 PRODUCT FACTS:
 - Title: ${args.invention.title}
 - Category: ${args.invention.category}
 - Price (USD): ${args.invention.unitPriceUsd}
-- COGS (USD, for realism only): ${args.invention.unitCogsUsd}
 - Valuation (USD): ${args.invention.valuationUsd}
 - Descriptors (must be felt in the story): ${d1} + ${d2}
 

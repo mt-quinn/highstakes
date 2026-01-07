@@ -11,7 +11,6 @@ export type Invention = {
   // Economics
   valuationUsd: number; // determines ownershipShare
   unitPriceUsd: number;
-  unitCogsUsd: number; // narrative grounding (not used for payout)
 
   category: string;
   imageUrl?: string; // public URL (Blob) or data URL (local dev)

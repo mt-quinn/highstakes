@@ -10,6 +10,11 @@ next-env.d.ts
 dist/
 build/
 
+# Turborepo / Next.js tooling caches
+.turbo/
+.swc/
+.cache/
+
 # Env / secrets (ignore all env files; keep only an example template if you add one)
 .env
 .env.*
@@ -22,6 +27,7 @@ build/
 
 # TypeScript (Next.js generates this file; it should be committed)
 !next-env.d.ts
+*.tsbuildinfo
 
 # Logs
 npm-debug.log*
@@ -45,5 +51,12 @@ Thumbs.db
 *.swp
 *.swo
 *.tmp
+
+# Test / coverage outputs
+coverage/
+.nyc_output/
+
+# Lint caches
+.eslintcache
 
 
